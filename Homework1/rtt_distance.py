@@ -16,8 +16,11 @@ import requests
 
 @dataclass
 class PingResult:
+    # Average RTT extracted from ping output, if available.
     avg_ms: Optional[float]
+    # Full command output, useful for debugging failed probes.
     raw: str
+    # True when the RTT summary was parsed successfully.
     ok: bool
 
 
@@ -28,8 +31,7 @@ def run_ping(host: str, count: int, timeout_s: int) -> PingResult:
     """
     system = platform.system().lower()
 
-    # macOS: ping -c <count> -W <timeout_ms>
-    # Linux: ping -c <count> -W <timeout_s>
+    # macOS and Linux use different units for the -W timeout option.
     if "darwin" in system:
         cmd = ["ping", "-c", str(count), "-W", str(timeout_s * 1000), host]
     else:
@@ -46,11 +48,10 @@ def run_ping(host: str, count: int, timeout_s: int) -> PingResult:
     except Exception as e:
         return PingResult(avg_ms=None, raw=str(e), ok=False)
 
-    # macOS/Linux summary line:
-    # rtt min/avg/max/mdev = 12.345/23.456/34.567/1.234 ms
+    # Linux usually reports the RTT summary with "rtt ... = min/avg/max/...".
     m = re.search(r"rtt [^=]*=\s*([\d\.]+)/([\d\.]+)/([\d\.]+)/([\d\.]+)\s*ms", out)
     if not m:
-        # Sometimes mac prints: round-trip min/avg/max/stddev = ...
+        # macOS often prints the same summary with "round-trip ...".
         m2 = re.search(
             r"round-trip [^=]*=\s*([\d\.]+)/([\d\.]+)/([\d\.]+)/([\d\.]+)\s*ms",
             out
@@ -65,15 +66,16 @@ def run_ping(host: str, count: int, timeout_s: int) -> PingResult:
 
 
 def get_public_ip_location() -> Optional[tuple[float, float]]:
-    """
-    Detect approximate source coordinates using IP geolocation.
-    NOTE: This returns the location of the public IP/ISP PoP, not GPS-accurate position.
-    """
+
+    # Detect approximate source coordinates using IP geolocation.
+    # This returns the location of the public IP/ISP PoP, not GPS-accurate position.
+
     try:
         r = requests.get("https://ipinfo.io/json", timeout=5)
         r.raise_for_status()
         data = r.json()
-        loc = data.get("loc")  # "lat,lon"
+        # The API returns coordinates as a single "lat,lon" string.
+        loc = data.get("loc")
         if not loc:
             return None
         lat_str, lon_str = loc.split(",")
@@ -98,9 +100,11 @@ def main():
     ap.add_argument("--timeout", type=int, default=2, help="Ping timeout seconds (default 2)")
     ap.add_argument("--sleep", type=float, default=0.2, help="Sleep between hosts (default 0.2s)")
     ap.add_argument("--out", default="results.csv", help="Output CSV (default results.csv)")
+    ap.add_argument("--plot-out", default="rtt_vs_distance.png", help="Output plot image (default rtt_vs_distance.png)")
     args = ap.parse_args()
 
-    # Auto-detect source coordinates if not provided
+    # If the user does not provide the source coordinates, estimate them
+    # from the public IP address. This is approximate but enough for the homework.
     if args.src_lat is None or args.src_lon is None:
         loc = get_public_ip_location()
         if loc is None:
@@ -123,13 +127,16 @@ def main():
 
     rows = []
     for i, r in df.iterrows():
+        # Read destination hostname and coordinates from the CSV row.
         host = str(r["hostname"]).strip()
         lat = float(r["latitude"])
         lon = float(r["longitude"])
         label = str(r["label"]).strip() if "label" in df.columns else host
 
+        # Compute the physical distance between the source and the destination.
         dist_km = geodistance(src, (lat, lon)).km
 
+        # Measure the average RTT with ping.
         pr = run_ping(host, args.count, args.timeout)
         rows.append({
             "hostname": host,
@@ -144,11 +151,12 @@ def main():
         print(f"[{i+1}/{len(df)}] {host:30s} dist={dist_km:8.1f} km  rtt_avg={pr.avg_ms if pr.avg_ms is not None else 'NA'} ms  ok={pr.ok}")
         time.sleep(args.sleep)
 
+    # Save all collected measurements, including failed probes.
     res = pd.DataFrame(rows)
     res.to_csv(args.out, index=False)
     print(f"\nSaved: {args.out}")
 
-    # Filter valid results for fitting/plot
+    # Only successful pings can be used for the linear fit and the plot.
     valid = res[(res["ping_ok"] == True) & (res["rtt_avg_ms"].notna())].copy()
     if len(valid) < 3:
         print("Not enough valid points to fit a line (need at least 3).", file=sys.stderr)
@@ -157,10 +165,10 @@ def main():
     x = valid["distance_km"].to_numpy()
     y = valid["rtt_avg_ms"].to_numpy()
 
-    # Linear fit RTT = m * d + q
+    # Fit the line RTT = m * distance + q requested in the assignment.
     m, q = np.polyfit(x, y, 1)
 
-    # R^2
+    # Compute R^2 to quantify how well the linear model explains the data.
     y_hat = m * x + q
     ss_res = np.sum((y - y_hat) ** 2)
     ss_tot = np.sum((y - np.mean(y)) ** 2)
@@ -171,7 +179,7 @@ def main():
     print(f"q (ms)    = {q:.3f}")
     print(f"R^2       = {r2:.4f}")
 
-    # Plot
+    # Plot the measured points and overlay the fitted straight line.
     x_line = np.linspace(x.min(), x.max(), 200)
     y_line = m * x_line + q
 
@@ -183,6 +191,8 @@ def main():
     plt.title("RTT vs Physical Distance (Active Measurements)")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
+    plt.savefig(args.plot_out, dpi=200)
+    print(f"Saved plot: {args.plot_out}")
     plt.show()
 
 

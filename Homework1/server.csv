@@ -1,9 +1,9 @@
 hostname,latitude,longitude,label
-www.polimi.it,45.4781,9.2275,Politecnico di Milano IT
-ftp.nluug.nl,52.3676,4.9041,Amsterdam NL
+ftp.polito.it,45.0620,7.6620,Italy
 ftp.fau.de,49.5976,11.0040,Germany
-ftp.debian.org,38.713,-9.139,Lisbon PT
+ftp.nluug.nl,52.3676,4.9041,Amsterdam NL
 ftp.heanet.ie,53.3498,-6.2603,Dublin IE
+ftp.debian.org,38.713,-9.139,Lisbon PT
 ftp.us.debian.org,39.9526,-75.1652,USA East
 speedtest.sfo12.us.leaseweb.net,37.7749,-122.4194,USA West (San Francisco)
 ftp.jaist.ac.jp,36.5944,136.6256,Japan
