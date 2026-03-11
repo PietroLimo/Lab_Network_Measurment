@@ -1,0 +1,10 @@
+hostname,label,dst_lat,dst_lon,distance_km,rtt_avg_ms,ping_ok
+ftp.polito.it,Italy,45.062,7.662,2.1695875842577963,43.455,True
+ftp.fau.de,Germany,49.5976,11.004,562.1586814257176,45.868,True
+ftp.nluug.nl,Amsterdam NL,52.3676,4.9041,836.7333048650041,56.71,True
+ftp.heanet.ie,Dublin IE,53.3498,-6.2603,1366.9547833047081,37.359,True
+ftp.debian.org,Lisbon PT,38.713,-9.139,1560.5833215735904,27.116,True
+ftp.us.debian.org,USA East,39.9526,-75.1652,6525.627855942398,140.89,True
+speedtest.sfo12.us.leaseweb.net,USA West (San Francisco),37.7749,-122.4194,9558.66139864491,176.12,True
+ftp.jaist.ac.jp,Japan,36.5944,136.6256,9611.843608312676,317.29,True
+mirror.aarnet.edu.au,Australia,-33.8688,151.2093,16678.616673419034,347.7,True
